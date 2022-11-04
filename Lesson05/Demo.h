@@ -13,21 +13,42 @@ public:
 	Demo();
 	~Demo();
 private:
-	GLuint shaderProgram, VBO, VAO, EBO, texture, VBO2, VAO2, EBO2, texture2, VBO3, VAO3, EBO3, texture3;
+	GLuint shaderProgram,
+		VBO, VAO, EBO, textureWall, texturePresiden, textureWapres,
+		VBO2, VAO2, EBO2, texturePlane;
+
+	float viewCamX, viewCamY, viewCamZ, upCamX, upCamY, upCamZ, posCamX, posCamY, posCamZ, CAMERA_SPEED, fovy;
 	float angle = 0;
 	virtual void Init();
 	virtual void DeInit();
 	virtual void Update(double deltaTime);
 	virtual void Render();
 	virtual void ProcessInput(GLFWwindow *window);
-	void BuildColoredCube();
+	// void BuildColoredCube();
 	void BuildColoredPlane();
-	void BuildColoredWall();
-	void DrawColoredCube();
+	// void DrawColoredCube();
 	void DrawColoredPlane();
+	void BuildColoredWall();
 	void DrawColoredWall(
 		float translateX, float translateY, float translateZ,
-		float rotateAngle
+		float scaleX, float scaleY, float scaleZ
 	);
+
+	void BuildPresiden();
+	void DrawPresiden(
+		float translateX, float translateY, float translateZ,
+		float scaleX, float scaleY, float scaleZ
+	);
+
+	void BuildCoPresiden();
+	void DrawCoPresiden(
+		float translateX, float translateY, float translateZ,
+		float scaleX, float scaleY, float scaleZ
+	);
+
+	void MoveCamera(float speed);
+	void StrafeCamera(float speed);
+	void RotateCamera(float speed);
+	void InitCamera();
 };
 
