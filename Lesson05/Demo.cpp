@@ -14,15 +14,38 @@ Demo::~Demo() {
 void Demo::Init() {
 	// build and compile our shader program
 	// ------------------------------------
-	shaderProgram = BuildShader("vertexShader.vert", "fragmentShader.frag", nullptr);
+	// shaderProgram = BuildShader("vertexShader.vert", "fragmentShader.frag", nullptr);
+
+	BuildShaders();
+	BuildDepthMap();
 
 	BuildColoredWall();
+
+	BuildAtap();
+
+	BuildOrnamen();
 
 	BuildColoredPlane();
 
 	BuildPresiden();
-
+	
 	BuildCoPresiden();
+
+	BuildKakiKursi();
+
+	BuildKakiMeja();
+
+	BuildMeja();
+
+	BuildAlasKursi();
+
+	BuildSandaranKursi();
+
+	BuildPapanTulis();
+
+	BuildProyektor();
+
+	BuildTiang();
 
 	InitCamera();
 }
@@ -36,6 +59,7 @@ void Demo::DeInit() {
 	glDeleteVertexArrays(1, &VAO2);
 	glDeleteBuffers(1, &VBO2);
 	glDeleteBuffers(1, &EBO2);
+	glDeleteBuffers(1, &depthMapFBO);
 }
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
@@ -98,7 +122,7 @@ void Demo::ProcessInput(GLFWwindow *window) {
 	angleZ = (float)((midY - mouseY)) / 1000;
 
 	// The higher the value is the faster the camera looks around.
-	viewCamY += angleZ * 2;
+	viewCamY -= angleZ * 2;
 
 	// limit the rotation around the x-axis
 	if ((viewCamY - posCamY) > 8) {
@@ -116,66 +140,432 @@ void Demo::Update(double deltaTime) {
 }
 
 void Demo::Render() {
-	glViewport(0, 0, this->screenWidth, this->screenHeight);
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glClearColor(20/255.0f, 158/255.0f, 217/255.0f, 1.0f);
-
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 	glEnable(GL_DEPTH_TEST);
 
+	glClearColor(20/255.0f, 158/255.0f, 217/255.0f, 1.0f);
+
+	// Step 1 Render depth of scene to texture
+	// ----------------------------------------
+	glm::mat4 lightProjection, lightView;
+	glm::mat4 lightSpaceMatrix;
+	float near_plane = 3.0f, far_plane = 10.5f;
+	lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+	lightView = glm::lookAt(glm::vec3(-2.0f, 10.0f, -1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0, 1.0, 0.0));
+	lightSpaceMatrix = lightProjection * lightView;
+	// render scene from light's point of view
+	UseShader(this->depthmapShader);
+	glUniformMatrix4fv(glGetUniformLocation(this->depthmapShader, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+	glViewport(0, 0, this->SHADOW_WIDTH, this->SHADOW_HEIGHT);
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	
+	// SOME SHADOWED OBJECT HERE ==>>
+
+	DrawMeja(
+		// Translate
+		-10.0f, 0.0f, -9.0f,
+
+		// Scale
+		1.9, 0.05, 1.2,
+
+		this->depthmapShader
+	);
+	DrawMeja(
+		// Translate
+		-10.0f, 0.1f, -9.0f,
+
+		// Scale
+		2.0, 0.05, 1.35,
+
+		this->depthmapShader
+	);
+	
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	// Step 2 Render scene normally using generated depth map
+	// ------------------------------------------------------
+	glViewport(0, 0, this->screenWidth, this->screenHeight);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
 	// Pass perspective projection matrix
+	UseShader(this->shadowmapShader);
 	glm::mat4 projection = glm::perspective(fovy, (GLfloat)this->screenWidth / (GLfloat)this->screenHeight, 0.1f, 100.0f);
-	GLint projLoc = glGetUniformLocation(this->shaderProgram, "projection");
+	GLint projLoc = glGetUniformLocation(this->shadowmapShader, "projection");
 	glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
 	// LookAt camera (position, target/direction, up)
 	glm::mat4 view = glm::lookAt(glm::vec3(posCamX, posCamY, posCamZ), glm::vec3(viewCamX, viewCamY, viewCamZ), glm::vec3(upCamX, upCamY, upCamZ));
-	GLint viewLoc = glGetUniformLocation(this->shaderProgram, "view");
+	GLint viewLoc = glGetUniformLocation(this->shadowmapShader, "view");
 	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
-	DrawColoredPlane();
+	// Setting Light Attributes
+	glUniformMatrix4fv(glGetUniformLocation(this->shadowmapShader, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+	glUniform3f(glGetUniformLocation(this->shadowmapShader, "viewPos"), posCamX, posCamY, posCamZ);
+	glUniform3f(glGetUniformLocation(this->shadowmapShader, "lightPos"), -2.0f, 4.0f, -1.0f);
+
+	// Configure Shaders
+	glUniform1i(glGetUniformLocation(this->shadowmapShader, "diffuseTexture"), 0);
+	glUniform1i(glGetUniformLocation(this->shadowmapShader, "shadowMap"), 1);
+
+	DrawColoredPlane(this->shadowmapShader);
+
+	DrawOrnamen(
+		// Translate
+		0.0f, 5.0f, -15.0f,
+
+		// Scale
+		2, 7.5, 0.5,
+
+		this->shadowmapShader
+	);
+
+	DrawPapanTulis(
+		// Translate
+		0.0f, 4.0f, -14.5f,
+
+		// Scale
+		3.5, 2, 0.25,
+
+		this->shadowmapShader
+	);
+
+	// TEMBOK ==================================
 
 	DrawColoredWall(
 		// Translate
-		0.0f, 4.0f, -15.5f,
+		0.0f, 5.0f, -15.5f,
 		
 		// Scale
-		30, 11, 1
+		15, 6.5, 0.5,
+
+		this->shadowmapShader
 	);
 
 	DrawColoredWall(
 		// Translate
-		-15.5f, 4.0f, 0.0f,
+		0.0f, 5.0f, 25.5f,
 
 		// Scale
-		1, 11, 30
+		15, 6.5, 0.5,
+
+		this->shadowmapShader
 	);
 
 	DrawColoredWall(
 		// Translate
-		15.5f, 4.0f, 0.0f,
+		-15.5f, 5.0f, 5.0f,
 
 		// Scale
-		1, 11, 30
+		0.5, 6.5, 20,
+
+		this->shadowmapShader
 	);
+
+	DrawColoredWall(
+		// Translate
+		15.5f, 5.0f, 5.0f,
+
+		// Scale
+		0.5, 6.5, 20,
+
+		this->shadowmapShader
+	);
+
+	DrawAtap(
+		// Translate
+		0.0f, 12.0f, 5.0f,
+
+		// Scale
+		15, 0.5, 20,
+
+		this->shadowmapShader
+	);
+
+	//==================================
+
+	// PRESIDEN ========================
 
 	DrawPresiden(
 		// Translate
-		-6.0f, 6.0f, -15.0f,
+		-8.0f, 10.0f, -15.0f,
 
 		// Scale
-		1.7, 2.2, 0.1
+		0.85, 1.1, 0.05,
+
+		this->shadowmapShader
 	);
 
 	DrawCoPresiden(
 		// Translate
-		6.0f, 6.0f, -15.0f,
+		8.0f, 10.0f, -15.0f,
 
 		// Scale
-		1.7, 2.2, 0.1
+		0.85, 1.1, 0.05,
+
+		this->shadowmapShader
 	);
+
+	// =================================
+
+	// DOSEN AREA ======================
+	
+	DrawTiang(
+		// Translate
+		-10.0f, 9.0f, -7.0f,
+
+		// Scale
+		0.1, 2.5, 0.1,
+
+		this->shadowmapShader
+	);
+
+	DrawProyektor(
+		// Translate
+		-10.0f, 6.0f, -7.0f,
+
+		// Scale
+		0.75, 0.25, 0.75,
+
+		this->shadowmapShader
+	);
+
+	// MEJA ============================
+
+	DrawMeja(
+		// Translate
+		-10.0f, 0.0f, -9.0f,
+
+		// Scale
+		1.9, 0.05, 1.2,
+
+		this->shadowmapShader
+	);
+	DrawMeja(
+		// Translate
+		-10.0f, 0.1f, -9.0f,
+
+		// Scale
+		2.0, 0.05, 1.35,
+		
+		this->shadowmapShader
+	);
+
+	DrawKakiMeja(
+		// Translate
+		-11.7f, -0.75f, -10.0f,
+
+		// Scale
+		0.15, 0.75, 0.15,
+
+		this->shadowmapShader
+	);
+
+	DrawKakiMeja(
+		// Translate
+		-11.7f, -0.75f, -8.0f,
+
+		// Scale
+		0.15, 0.75, 0.15,
+
+		this->shadowmapShader
+	);
+
+	DrawKakiMeja(
+		// Translate
+		-8.3f, -0.75f, -10.0f,
+
+		// Scale
+		0.15, 0.75, 0.15,
+
+		this->shadowmapShader
+	);
+
+	DrawKakiMeja(
+		// Translate
+		-8.3f, -0.75f, -8.0f,
+
+		// Scale
+		0.15, 0.75, 0.15,
+
+		this->shadowmapShader
+	);
+
+	// KAKI ============================
+
+	DrawKakiKursi(
+		// Translate
+		-10.5, -0.9f, -10.5f,
+
+		// Scale
+		0.1, 0.55, 0.1,
+
+		this->shadowmapShader
+	);
+
+	DrawKakiKursi(
+		// Translate
+		-9.5, -0.9f, -10.5f,
+
+		// Scale
+		0.1, 0.55, 0.1,
+
+		this->shadowmapShader
+	);
+
+	DrawKakiKursi(
+		// Translate
+		-10.5, -0.9f, -11.5f,
+
+		// Scale
+		0.1, 0.55, 0.1,
+
+		this->shadowmapShader
+	);
+
+	DrawKakiKursi(
+		// Translate
+		-9.5, -0.9f, -11.5f,
+
+		// Scale
+		0.1, 0.55, 0.1,
+
+		this->shadowmapShader
+	);
+
+	DrawAlasKursi(
+		// Translate
+		-10.0f, -0.3f, -11.0f,
+
+		// Scale
+		0.7, 0.025, 0.7,
+
+		this->shadowmapShader
+	);
+
+	DrawSandaranKursi(
+		// Translate
+		-10.0f, 2.7f, -11.1f,
+
+		// Scale
+		0.7, 0.7, 0.025, -0.2f,
+
+		this->shadowmapShader
+	);
+
+	// LAPTOP
+
+
+
+	// =================================
+
+	// Draw Kaki Meja
+	float zKaki = 1.0f;
+	int separator = 0;
+	while (zKaki <= 24.0f) {
+		for (int xKaki = 9; xKaki > -11; xKaki -= 2) {
+			DrawKakiMeja(
+				// Translate
+				xKaki, -0.75f, zKaki,
+
+				// Scale
+				0.15, 0.75, 0.15,
+
+				this->shadowmapShader
+			);
+		}
+		zKaki += 2.0f;
+		separator++;
+		if (separator % 2 == 0 && separator != 0) {
+			zKaki += 2.0f;
+		}
+	}
+
+	// Draw Kaki Kursi
+	zKaki = 3.5f;
+	int separatorX = 0;
+	int separatorZ = 0;
+	while (zKaki <= 26.0f) {
+		for (float xKaki = 8.5f; xKaki > -11; xKaki -= 1) {
+			DrawKakiKursi(
+				// Translate
+				xKaki, -0.9f, zKaki,
+
+				// Scale
+				0.1, 0.55, 0.1,
+
+				this->shadowmapShader
+			);
+			separatorX++;
+			if (separatorX % 2 == 0 && separatorX != 0) {
+				xKaki -= 2;
+			}
+		}
+		zKaki += 1.0f;
+		separatorZ++;
+		if (separatorZ % 2 == 0 && separatorZ != 0) {
+			zKaki += 4.0f;
+		}
+	}
+
+	// Draw Alas Meja
+	float zMeja = 2.0f;
+	while (zMeja <= 24.0f) {
+		for (int xMeja = 8; xMeja > -11; xMeja -= 4) {
+			DrawMeja(
+				// Translate
+				xMeja, 0.0f, zMeja,
+
+				// Scale
+				1.2, 0.05, 1.2,
+
+				this->shadowmapShader
+			);
+			DrawMeja(
+				// Translate
+				xMeja, 0.1f, zMeja,
+
+				// Scale
+				1.35, 0.05, 1.35,
+
+				this->shadowmapShader
+			);
+		}
+		zMeja += 6.0f;
+	}
+
+	// Draw Alas Kursi
+	float zKursi = 4.0f;
+	float tambahanKursi = 0.0f;
+	float kuranganKursi = 0.0f;
+	while (zKursi <= 24.0f) {
+		for (float xKursi = 8; xKursi > -11; xKursi -= 4) {
+			DrawAlasKursi(
+				// Translate
+				xKursi, -0.3f, zKursi,
+
+				// Scale
+				0.7, 0.025, 0.7,
+
+				this->shadowmapShader
+			);
+
+			DrawSandaranKursi(
+				// Translate
+				xKursi, 1.3f + tambahanKursi, zKursi + 0.2f - kuranganKursi,
+
+				// Scale
+				0.7, 0.7, 0.025, 0.2f,
+
+				this->shadowmapShader
+			);
+		}
+		tambahanKursi += 1.2f;
+		kuranganKursi += 0.1f;
+		zKursi += 6.0f;
+	}
 
 	glDisable(GL_DEPTH_TEST);
 }
@@ -200,40 +590,40 @@ void Demo::BuildColoredWall()
 	float vertices[] = {
 		// format position, tex coords
 		// front
-		-0.5, -0.5, 0.5, 0, 0,  // 0
-		0.5, -0.5, 0.5, 1, 0,   // 1
-		0.5,  0.5, 0.5, 1, 1,   // 2
-		-0.5,  0.5, 0.5, 0, 1,  // 3
+		-0.5, -0.5, 0.5, 0, 0, 0.0f,  0.0f,  1.0f,// 0
+		 0.5, -0.5, 0.5, 1, 0,  0.0f,  0.0f,  1.0f,// 1
+		 0.5,  0.5, 0.5, 1, 1,  0.0f,  0.0f,  1.0f,// 2
+		-0.5,  0.5, 0.5, 0, 1, 0.0f,  0.0f,  1.0f,// 3
 
 		// right
-		0.5, -0.5,  0.5, 0, 0,  // 4
-		0.5, -0.5, -0.5, 1, 0,  // 5
-		0.5,  0.5, -0.5, 1, 1,  // 6
-		0.5,  0.5,  0.5, 0, 1,  // 7
+		0.5, -0.5,  0.5, 0, 0, 1.0f,  0.0f,  0.0f,// 4
+		0.5, -0.5, -0.5, 1, 0, 1.0f,  0.0f,  0.0f,// 5
+		0.5,  0.5, -0.5, 1, 1, 1.0f,  0.0f,  0.0f,// 6
+		0.5,  0.5,  0.5, 0, 1, 1.0f,  0.0f,  0.0f,// 7
 
 		// back
-		-0.5, -0.5, -0.5, 0, 0, // 8 
-		0.5,  -0.5, -0.5, 1, 0, // 9
-		0.5,   0.5, -0.5, 1, 1, // 10
-		-0.5,  0.5, -0.5, 0, 1, // 11
+		-0.5, -0.5, -0.5, 0, 0, 0.0f,  0.0f,  -1.0f, // 8 
+		 0.5, -0.5, -0.5, 1, 0, 0.0f,  0.0f,  -1.0f, // 9
+		 0.5,  0.5, -0.5, 1, 1, 0.0f,  0.0f,  -1.0f, // 10
+		-0.5,  0.5, -0.5, 0, 1, 0.0f,  0.0f,  -1.0f, // 11
 
 		// left
-		-0.5, -0.5, -0.5, 0, 0, // 12
-		-0.5, -0.5,  0.5, 1, 0, // 13
-		-0.5,  0.5,  0.5, 1, 1, // 14
-		-0.5,  0.5, -0.5, 0, 1, // 15
+		-0.5, -0.5, -0.5, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		-0.5, -0.5,  0.5, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		-0.5,  0.5,  0.5, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		-0.5,  0.5, -0.5, 0, 1, -1.0f,  0.0f,  0.0f, // 15
 
 		// upper
-		0.5, 0.5,  0.5, 0, 0,   // 16
-		-0.5, 0.5,  0.5, 1, 0,  // 17
-		-0.5, 0.5, -0.5, 1, 1,  // 18
-		0.5, 0.5, -0.5, 0, 1,   // 19
+		 0.5, 0.5,  0.5, 0, 0,   0.0f,  1.0f,  0.0f,  // 16
+		-0.5, 0.5,  0.5, 1, 0,  0.0f,  1.0f,  0.0f,  // 17
+		-0.5, 0.5, -0.5, 1, 1,  0.0f,  1.0f,  0.0f,  // 18
+		 0.5, 0.5, -0.5, 0, 1,   0.0f,  1.0f,  0.0f,  // 19
 
-		// bottom
-		-0.5, -0.5, -0.5, 0, 0, // 20
-		0.5, -0.5, -0.5, 1, 0,  // 21
-		0.5, -0.5,  0.5, 1, 1,  // 22
-		-0.5, -0.5,  0.5, 0, 1, // 23
+		 // bottom
+		 -0.5, -0.5, -0.5, 0, 0, 0.0f,  -1.0f,  0.0f, // 20
+		  0.5, -0.5, -0.5, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		  0.5, -0.5,  0.5, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		 -0.5, -0.5,  0.5, 0, 1, 0.0f,  -1.0f,  0.0f, // 23
 	};
 
 	unsigned int indices[] = {
@@ -258,12 +648,16 @@ void Demo::BuildColoredWall()
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 	// define position pointer layout 0
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(0);
 
 	// define texcoord pointer layout 1
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
 
 	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -279,14 +673,16 @@ void Demo::BuildColoredWall()
 
 void Demo::DrawColoredWall(
 	float translateX, float translateY, float translateZ,
-	float scaleX, float scaleY, float scaleZ
+	float scaleX, float scaleY, float scaleZ, GLuint shader
 )
 {
-	glUseProgram(shaderProgram);
+	UseShader(shader);
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, textureWall);
-	glUniform1i(glGetUniformLocation(this->shaderProgram, "ourTexture"), 0);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
 
 	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
 
@@ -295,7 +691,268 @@ void Demo::DrawColoredWall(
 
 	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
 
-	GLint modelLoc = glGetUniformLocation(this->shaderProgram, "model");
+	GLint modelLoc = glGetUniformLocation(shader, "model");
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindVertexArray(0);
+}
+
+void Demo::BuildAtap()
+{
+	// load image into texture memory
+	// ------------------------------
+	// Load and create a texture 
+	glGenTextures(1, &textureAtap);
+	glBindTexture(GL_TEXTURE_2D, textureAtap);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int width, height;
+	unsigned char* image = SOIL_load_image("atap.png", &width, &height, 0, SOIL_LOAD_RGBA);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	SOIL_free_image_data(image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	// ------------------------------------------------------------------
+	float vertices[] = {
+		// format position, tex coords, normal
+		// front
+		-0.5, -0.5,  0.5, 0, 0,  0.0f,  0.0f,  1.0f, // 0
+		 0.5, -0.5,  0.5, 1, 0,  0.0f,  0.0f,  1.0f, // 1
+		 0.5,  0.5,  0.5, 1, 1,  0.0f,  0.0f,  1.0f, // 2
+		-0.5,  0.5,  0.5, 0, 1,  0.0f,  0.0f,  1.0f, // 3
+
+		// right				 
+		 0.5, -0.5,  0.5, 0, 0,  1.0f,  0.0f,  0.0f, // 4
+		 0.5, -0.5, -0.5, 1, 0,  1.0f,  0.0f,  0.0f, // 5
+		 0.5,  0.5, -0.5, 1, 1,  1.0f,  0.0f,  0.0f, // 6
+		 0.5,  0.5,  0.5, 0, 1,  1.0f,  0.0f,  0.0f, // 7
+
+		 // back					 
+		 -0.5, -0.5, -0.5, 0, 0,  0.0f,  0.0f, -1.0f, // 8 
+		  0.5, -0.5, -0.5, 1, 0,  0.0f,  0.0f, -1.0f, // 9
+		  0.5,  0.5, -0.5, 1, 1,  0.0f,  0.0f, -1.0f, // 10
+		 -0.5,  0.5, -0.5, 0, 1,  0.0f,  0.0f, -1.0f, // 11
+
+		 // left
+		 -0.5, -0.5, -0.5, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		 -0.5, -0.5,  0.5, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		 -0.5,  0.5,  0.5, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		 -0.5,  0.5, -0.5, 0, 1, -1.0f,  0.0f,  0.0f, // 15
+
+		 // upper
+		  0.5,  0.5,  0.5, 0, 0,  0.0f,  1.0f,  0.0f, // 16
+		 -0.5,  0.5,  0.5, 1, 0,  0.0f,  1.0f,  0.0f, // 17
+		 -0.5,  0.5, -0.5, 1, 1,  0.0f,  1.0f,  0.0f, // 18
+		  0.5,  0.5, -0.5, 0, 1,  0.0f,  1.0f,  0.0f, // 19
+
+		  // bottom
+		  -0.5, -0.5, -0.5, 0, 0,  0.0f,  -1.0f,  0.0f, // 20
+		   0.5, -0.5, -0.5, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		   0.5, -0.5,  0.5, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		  -0.5, -0.5,  0.5, 0, 1,  0.0f,  -1.0f,  0.0f, // 23
+	};
+
+	unsigned int indices[] = {
+		0,  1,  2,  0,  2,  3,   // front
+		4,  5,  6,  4,  6,  7,   // right
+		8,  9,  10, 8,  10, 11,  // back
+		12, 14, 13, 12, 15, 14,  // left
+		16, 18, 17, 16, 19, 18,  // upper
+		20, 22, 21, 20, 23, 22   // bottom
+	};
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// define position pointer layout 0
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(0);
+
+	// define texcoord pointer layout 1
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+
+	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	glBindVertexArray(0);
+
+	// remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+}
+
+void Demo::DrawAtap(
+	float translateX, float translateY, float translateZ,
+	float scaleX, float scaleY, float scaleZ, GLuint shader
+)
+{
+	UseShader(shader);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textureAtap);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+	glm::mat4 model;
+	model = glm::translate(model, glm::vec3(0 + translateX, 1 + translateY, 0 + translateZ));
+
+	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
+
+	GLint modelLoc = glGetUniformLocation(shader, "model");
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindVertexArray(0);
+}
+
+void Demo::BuildOrnamen()
+{
+	// load image into texture memory
+	// ------------------------------
+	// Load and create a texture 
+	glGenTextures(1, &textureOrnamen);
+	glBindTexture(GL_TEXTURE_2D, textureOrnamen);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int width, height;
+	unsigned char* image = SOIL_load_image("ornamen.png", &width, &height, 0, SOIL_LOAD_RGBA);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	SOIL_free_image_data(image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	// ------------------------------------------------------------------
+	float vertices[] = {
+		// format position, tex coords
+		// front
+		-0.5, -0.5, 0.5, 0, 0, 0.0f,  0.0f,  1.0f,// 0
+		 0.5, -0.5, 0.5, 1, 0,  0.0f,  0.0f,  1.0f,// 1
+		 0.5,  0.5, 0.5, 1, 1,  0.0f,  0.0f,  1.0f,// 2
+		-0.5,  0.5, 0.5, 0, 1, 0.0f,  0.0f,  1.0f,// 3
+
+		// right
+		0.5, -0.5,  0.5, 0, 0, 1.0f,  0.0f,  0.0f,// 4
+		0.5, -0.5, -0.5, 1, 0, 1.0f,  0.0f,  0.0f,// 5
+		0.5,  0.5, -0.5, 1, 1, 1.0f,  0.0f,  0.0f,// 6
+		0.5,  0.5,  0.5, 0, 1, 1.0f,  0.0f,  0.0f,// 7
+
+		// back
+		-0.5, -0.5, -0.5, 0, 0, 0.0f,  0.0f,  -1.0f, // 8 
+		 0.5, -0.5, -0.5, 1, 0, 0.0f,  0.0f,  -1.0f, // 9
+		 0.5,  0.5, -0.5, 1, 1, 0.0f,  0.0f,  -1.0f, // 10
+		-0.5,  0.5, -0.5, 0, 1, 0.0f,  0.0f,  -1.0f, // 11
+
+		// left
+		-0.5, -0.5, -0.5, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		-0.5, -0.5,  0.5, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		-0.5,  0.5,  0.5, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		-0.5,  0.5, -0.5, 0, 1, -1.0f,  0.0f,  0.0f, // 15
+
+		// upper
+		 0.5, 0.5,  0.5, 0, 0,   0.0f,  1.0f,  0.0f,  // 16
+		-0.5, 0.5,  0.5, 1, 0,  0.0f,  1.0f,  0.0f,  // 17
+		-0.5, 0.5, -0.5, 1, 1,  0.0f,  1.0f,  0.0f,  // 18
+		 0.5, 0.5, -0.5, 0, 1,   0.0f,  1.0f,  0.0f,  // 19
+
+		// bottom
+		-0.5, -0.5, -0.5, 0, 0, 0.0f,  -1.0f,  0.0f, // 20
+		 0.5, -0.5, -0.5, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		 0.5, -0.5,  0.5, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		-0.5, -0.5,  0.5, 0, 1, 0.0f,  -1.0f,  0.0f, // 23
+	};
+
+	unsigned int indices[] = {
+		0,  1,  2,  0,  2,  3,   // front
+		4,  5,  6,  4,  6,  7,   // right
+		8,  9,  10, 8,  10, 11,  // back
+		12, 14, 13, 12, 15, 14,  // left
+		16, 18, 17, 16, 19, 18,  // upper
+		20, 22, 21, 20, 23, 22   // bottom
+	};
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// define position pointer layout 0
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(0);
+
+	// define texcoord pointer layout 1
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+
+	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	glBindVertexArray(0);
+
+	// remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+
+}
+
+void Demo::DrawOrnamen(
+	float translateX, float translateY, float translateZ,
+	float scaleX, float scaleY, float scaleZ, GLuint shader
+)
+{
+	UseShader(shader);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textureOrnamen);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+	glm::mat4 model;
+	model = glm::translate(model, glm::vec3(0 + translateX, 1 + translateY, 0 + translateZ));
+
+	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
+
+	GLint modelLoc = glGetUniformLocation(shader, "model");
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
 	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
@@ -322,42 +979,42 @@ void Demo::BuildPresiden()
 	// set up vertex data (and buffer(s)) and configure vertex attributes
 	// ------------------------------------------------------------------
 	float vertices[] = {
-		// format position, tex coords
+		// format position, tex coords, normal
 		// front
-		-0.5, -0.5, 0.5, 0, 0,  // 0
-		0.5, -0.5, 0.5, 1, 0,   // 1
-		0.5,  0.5, 0.5, 1, 1,   // 2
-		-0.5,  0.5, 0.5, 0, 1,  // 3
+		-1.0, -1.0, 1.0, 0, 0, 0.0f,  0.0f,  1.0f, // 0
+		1.0, -1.0, 1.0, 1, 0,  0.0f,  0.0f,  1.0f, // 1
+		1.0,  1.0, 1.0, 1, 1,  0.0f,  0.0f,  1.0f, // 2
+		-1.0,  1.0, 1.0, 0, 1, 0.0f,  0.0f,  1.0f, // 3
 
 		// right
-		0.5, -0.5,  0.5, 0, 0,  // 4
-		0.5, -0.5, -0.5, 1, 0,  // 5
-		0.5,  0.5, -0.5, 1, 1,  // 6
-		0.5,  0.5,  0.5, 0, 1,  // 7
+		1.0,  1.0,  1.0, 0, 0, 1.0f,  0.0f,  0.0f, // 4
+		1.0,  1.0, -1.0, 1, 0, 1.0f,  0.0f,  0.0f, // 5
+		1.0, -1.0, -1.0, 1, 1, 1.0f,  0.0f,  0.0f, // 6
+		1.0, -1.0,  1.0, 0, 1, 1.0f,  0.0f,  0.0f, // 7
 
 		// back
-		-0.5, -0.5, -0.5, 0, 0, // 8 
-		0.5,  -0.5, -0.5, 1, 0, // 9
-		0.5,   0.5, -0.5, 1, 1, // 10
-		-0.5,  0.5, -0.5, 0, 1, // 11
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  0.0f,  -1.0f, // 8 
+		1.0,  -1.0, -1.0, 1, 0, 0.0f,  0.0f,  -1.0f, // 9
+		1.0,   1.0, -1.0, 1, 1, 0.0f,  0.0f,  -1.0f, // 10
+		-1.0,  1.0, -1.0, 0, 1, 0.0f,  0.0f,  -1.0f, // 11
 
 		// left
-		-0.5, -0.5, -0.5, 0, 0, // 12
-		-0.5, -0.5,  0.5, 1, 0, // 13
-		-0.5,  0.5,  0.5, 1, 1, // 14
-		-0.5,  0.5, -0.5, 0, 1, // 15
+		-1.0, -1.0, -1.0, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		-1.0, -1.0,  1.0, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		-1.0,  1.0,  1.0, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		-1.0,  1.0, -1.0, 0, 1, -1.0f,  0.0f,  0.0f, // 15
 
 		// upper
-		0.5, 0.5,  0.5, 0, 0,   // 16
-		-0.5, 0.5,  0.5, 1, 0,  // 17
-		-0.5, 0.5, -0.5, 1, 1,  // 18
-		0.5, 0.5, -0.5, 0, 1,   // 19
+		1.0, 1.0,  1.0, 0, 0,   0.0f,  1.0f,  0.0f, // 16
+		-1.0, 1.0, 1.0, 1, 0,   0.0f,  1.0f,  0.0f, // 17
+		-1.0, 1.0, -1.0, 1, 1,  0.0f,  1.0f,  0.0f, // 18
+		1.0, 1.0, -1.0, 0, 1,   0.0f,  1.0f,  0.0f, // 19
 
 		// bottom
-		-0.5, -0.5, -0.5, 0, 0, // 20
-		0.5, -0.5, -0.5, 1, 0,  // 21
-		0.5, -0.5,  0.5, 1, 1,  // 22
-		-0.5, -0.5,  0.5, 0, 1, // 23
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  -1.0f,  0.0f, // 20
+		1.0, -1.0, -1.0, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		1.0, -1.0,  1.0, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		-1.0, -1.0,  1.0, 0, 1, 0.0f,  -1.0f,  0.0f, // 23
 	};
 
 	unsigned int indices[] = {
@@ -382,12 +1039,16 @@ void Demo::BuildPresiden()
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 	// define position pointer layout 0
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(0);
 
 	// define texcoord pointer layout 1
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
 
 	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -403,14 +1064,16 @@ void Demo::BuildPresiden()
 
 void Demo::DrawPresiden(
 	float translateX, float translateY, float translateZ,
-	float scaleX, float scaleY, float scaleZ
+	float scaleX, float scaleY, float scaleZ, GLuint shader
 )
 {
-	glUseProgram(shaderProgram);
+	UseShader(shader);
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texturePresiden);
-	glUniform1i(glGetUniformLocation(this->shaderProgram, "ourTexture"), 0);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
 
 	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
 
@@ -419,7 +1082,7 @@ void Demo::DrawPresiden(
 
 	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
 
-	GLint modelLoc = glGetUniformLocation(this->shaderProgram, "model");
+	GLint modelLoc = glGetUniformLocation(shader, "model");
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
 	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
@@ -446,42 +1109,42 @@ void Demo::BuildCoPresiden()
 	// set up vertex data (and buffer(s)) and configure vertex attributes
 	// ------------------------------------------------------------------
 	float vertices[] = {
-		// format position, tex coords
+		// format position, tex coords, normal
 		// front
-		-0.5, -0.5, 0.5, 0, 0,  // 0
-		0.5, -0.5, 0.5, 1, 0,   // 1
-		0.5,  0.5, 0.5, 1, 1,   // 2
-		-0.5,  0.5, 0.5, 0, 1,  // 3
+		-1.0, -1.0, 1.0, 0, 0, 0.0f,  0.0f,  1.0f, // 0
+		1.0, -1.0, 1.0, 1, 0,  0.0f,  0.0f,  1.0f, // 1
+		1.0,  1.0, 1.0, 1, 1,  0.0f,  0.0f,  1.0f, // 2
+		-1.0,  1.0, 1.0, 0, 1, 0.0f,  0.0f,  1.0f, // 3
 
 		// right
-		0.5, -0.5,  0.5, 0, 0,  // 4
-		0.5, -0.5, -0.5, 1, 0,  // 5
-		0.5,  0.5, -0.5, 1, 1,  // 6
-		0.5,  0.5,  0.5, 0, 1,  // 7
+		1.0,  1.0,  1.0, 0, 0, 1.0f,  0.0f,  0.0f, // 4
+		1.0,  1.0, -1.0, 1, 0, 1.0f,  0.0f,  0.0f, // 5
+		1.0, -1.0, -1.0, 1, 1, 1.0f,  0.0f,  0.0f, // 6
+		1.0, -1.0,  1.0, 0, 1, 1.0f,  0.0f,  0.0f, // 7
 
 		// back
-		-0.5, -0.5, -0.5, 0, 0, // 8 
-		0.5,  -0.5, -0.5, 1, 0, // 9
-		0.5,   0.5, -0.5, 1, 1, // 10
-		-0.5,  0.5, -0.5, 0, 1, // 11
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  0.0f,  -1.0f, // 8 
+		1.0,  -1.0, -1.0, 1, 0, 0.0f,  0.0f,  -1.0f, // 9
+		1.0,   1.0, -1.0, 1, 1, 0.0f,  0.0f,  -1.0f, // 10
+		-1.0,  1.0, -1.0, 0, 1, 0.0f,  0.0f,  -1.0f, // 11
 
 		// left
-		-0.5, -0.5, -0.5, 0, 0, // 12
-		-0.5, -0.5,  0.5, 1, 0, // 13
-		-0.5,  0.5,  0.5, 1, 1, // 14
-		-0.5,  0.5, -0.5, 0, 1, // 15
+		-1.0, -1.0, -1.0, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		-1.0, -1.0,  1.0, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		-1.0,  1.0,  1.0, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		-1.0,  1.0, -1.0, 0, 1, -1.0f,  0.0f,  0.0f, // 15
 
 		// upper
-		0.5, 0.5,  0.5, 0, 0,   // 16
-		-0.5, 0.5,  0.5, 1, 0,  // 17
-		-0.5, 0.5, -0.5, 1, 1,  // 18
-		0.5, 0.5, -0.5, 0, 1,   // 19
+		1.0, 1.0,  1.0, 0, 0,   0.0f,  1.0f,  0.0f, // 16
+		-1.0, 1.0, 1.0, 1, 0,   0.0f,  1.0f,  0.0f, // 17
+		-1.0, 1.0, -1.0, 1, 1,  0.0f,  1.0f,  0.0f, // 18
+		1.0, 1.0, -1.0, 0, 1,   0.0f,  1.0f,  0.0f, // 19
 
 		// bottom
-		-0.5, -0.5, -0.5, 0, 0, // 20
-		0.5, -0.5, -0.5, 1, 0,  // 21
-		0.5, -0.5,  0.5, 1, 1,  // 22
-		-0.5, -0.5,  0.5, 0, 1, // 23
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  -1.0f,  0.0f, // 20
+		1.0, -1.0, -1.0, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		1.0, -1.0,  1.0, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		-1.0, -1.0,  1.0, 0, 1, 0.0f,  -1.0f,  0.0f, // 23
 	};
 
 	unsigned int indices[] = {
@@ -506,12 +1169,274 @@ void Demo::BuildCoPresiden()
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 	// define position pointer layout 0
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(0);
 
 	// define texcoord pointer layout 1
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+
+	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	glBindVertexArray(0);
+
+	// remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+void Demo::DrawCoPresiden(
+	float translateX, float translateY, float translateZ,
+	float scaleX, float scaleY, float scaleZ, GLuint shader
+)
+{
+	UseShader(shader);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textureWapres);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+	glm::mat4 model;
+	model = glm::translate(model, glm::vec3(0 + translateX, 1 + translateY, 0 + translateZ));
+
+	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
+
+	GLint modelLoc = glGetUniformLocation(shader, "model");
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindVertexArray(0);
+}
+
+void Demo::BuildKakiKursi()
+{
+	// load image into texture memory
+	// ------------------------------
+	// Load and create a texture 
+	glGenTextures(1, &textureKakiKursi);
+	glBindTexture(GL_TEXTURE_2D, textureKakiKursi);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int width, height;
+	unsigned char* image = SOIL_load_image("kakikursi.png", &width, &height, 0, SOIL_LOAD_RGBA);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	SOIL_free_image_data(image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	// ------------------------------------------------------------------
+	float vertices[] = {
+		// format position, tex coords, normal
+		// front
+		-1.0, -1.0, 1.0, 0, 0, 0.0f,  0.0f,  1.0f, // 0
+		1.0, -1.0, 1.0, 1, 0,  0.0f,  0.0f,  1.0f, // 1
+		1.0,  1.0, 1.0, 1, 1,  0.0f,  0.0f,  1.0f, // 2
+		-1.0,  1.0, 1.0, 0, 1, 0.0f,  0.0f,  1.0f, // 3
+
+		// right
+		1.0,  1.0,  1.0, 0, 0, 1.0f,  0.0f,  0.0f, // 4
+		1.0,  1.0, -1.0, 1, 0, 1.0f,  0.0f,  0.0f, // 5
+		1.0, -1.0, -1.0, 1, 1, 1.0f,  0.0f,  0.0f, // 6
+		1.0, -1.0,  1.0, 0, 1, 1.0f,  0.0f,  0.0f, // 7
+
+		// back
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  0.0f,  -1.0f, // 8 
+		1.0,  -1.0, -1.0, 1, 0, 0.0f,  0.0f,  -1.0f, // 9
+		1.0,   1.0, -1.0, 1, 1, 0.0f,  0.0f,  -1.0f, // 10
+		-1.0,  1.0, -1.0, 0, 1, 0.0f,  0.0f,  -1.0f, // 11
+
+		// left
+		-1.0, -1.0, -1.0, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		-1.0, -1.0,  1.0, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		-1.0,  1.0,  1.0, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		-1.0,  1.0, -1.0, 0, 1, -1.0f,  0.0f,  0.0f, // 15
+
+		// upper
+		1.0, 1.0,  1.0, 0, 0,   0.0f,  1.0f,  0.0f, // 16
+		-1.0, 1.0, 1.0, 1, 0,   0.0f,  1.0f,  0.0f, // 17
+		-1.0, 1.0, -1.0, 1, 1,  0.0f,  1.0f,  0.0f, // 18
+		1.0, 1.0, -1.0, 0, 1,   0.0f,  1.0f,  0.0f, // 19
+
+		// bottom
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  -1.0f,  0.0f, // 20
+		1.0, -1.0, -1.0, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		1.0, -1.0,  1.0, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		-1.0, -1.0,  1.0, 0, 1, 0.0f,  -1.0f,  0.0f, // 23
+	};
+
+	unsigned int indices[] = {
+		0,  1,  2,  0,  2,  3,   // front
+		4,  5,  6,  4,  6,  7,   // right
+		8,  9,  10, 8,  10, 11,  // back
+		12, 14, 13, 12, 15, 14,  // left
+		16, 18, 17, 16, 19, 18,  // upper
+		20, 22, 21, 20, 23, 22   // bottom
+	};
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// define position pointer layout 0
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(0);
+
+	// define texcoord pointer layout 1
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+
+	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	glBindVertexArray(0);
+
+	// remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+void Demo::DrawKakiKursi(
+	float translateX, float translateY, float translateZ,
+	float scaleX, float scaleY, float scaleZ, GLuint shader
+)
+{
+	UseShader(shader);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textureKakiKursi);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+	glm::mat4 model;
+	model = glm::translate(model, glm::vec3(0 + translateX, 1 + translateY, 0 + translateZ));
+
+	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
+
+	GLint modelLoc = glGetUniformLocation(shader, "model");
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindVertexArray(0);
+}
+
+void Demo::BuildKakiMeja()
+{
+	// load image into texture memory
+	// ------------------------------
+	// Load and create a texture 
+	glGenTextures(1, &textureKakiMeja);
+	glBindTexture(GL_TEXTURE_2D, textureKakiMeja);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int width, height;
+	unsigned char* image = SOIL_load_image("kakikursi.png", &width, &height, 0, SOIL_LOAD_RGBA);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	SOIL_free_image_data(image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	// ------------------------------------------------------------------
+	float vertices[] = {
+		// format position, tex coords, normal
+		// front
+		-1.0, -1.0, 1.0, 0, 0, 0.0f,  0.0f,  1.0f, // 0
+		1.0, -1.0, 1.0, 1, 0,  0.0f,  0.0f,  1.0f, // 1
+		1.0,  1.0, 1.0, 1, 1,  0.0f,  0.0f,  1.0f, // 2
+		-1.0,  1.0, 1.0, 0, 1, 0.0f,  0.0f,  1.0f, // 3
+
+		// right
+		1.0,  1.0,  1.0, 0, 0, 1.0f,  0.0f,  0.0f, // 4
+		1.0,  1.0, -1.0, 1, 0, 1.0f,  0.0f,  0.0f, // 5
+		1.0, -1.0, -1.0, 1, 1, 1.0f,  0.0f,  0.0f, // 6
+		1.0, -1.0,  1.0, 0, 1, 1.0f,  0.0f,  0.0f, // 7
+
+		// back
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  0.0f,  -1.0f, // 8 
+		1.0,  -1.0, -1.0, 1, 0, 0.0f,  0.0f,  -1.0f, // 9
+		1.0,   1.0, -1.0, 1, 1, 0.0f,  0.0f,  -1.0f, // 10
+		-1.0,  1.0, -1.0, 0, 1, 0.0f,  0.0f,  -1.0f, // 11
+
+		// left
+		-1.0, -1.0, -1.0, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		-1.0, -1.0,  1.0, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		-1.0,  1.0,  1.0, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		-1.0,  1.0, -1.0, 0, 1, -1.0f,  0.0f,  0.0f, // 15
+
+		// upper
+		1.0, 1.0,  1.0, 0, 0,   0.0f,  1.0f,  0.0f, // 16
+		-1.0, 1.0, 1.0, 1, 0,   0.0f,  1.0f,  0.0f, // 17
+		-1.0, 1.0, -1.0, 1, 1,  0.0f,  1.0f,  0.0f, // 18
+		1.0, 1.0, -1.0, 0, 1,   0.0f,  1.0f,  0.0f, // 19
+
+		// bottom
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  -1.0f,  0.0f, // 20
+		1.0, -1.0, -1.0, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		1.0, -1.0,  1.0, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		-1.0, -1.0,  1.0, 0, 1, 0.0f,  -1.0f,  0.0f, // 23
+	};
+
+	unsigned int indices[] = {
+		0,  1,  2,  0,  2,  3,   // front
+		4,  5,  6,  4,  6,  7,   // right
+		8,  9,  10, 8,  10, 11,  // back
+		12, 14, 13, 12, 15, 14,  // left
+		16, 18, 17, 16, 19, 18,  // upper
+		20, 22, 21, 20, 23, 22   // bottom
+	};
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// define position pointer layout 0
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(0);
+
+	// define texcoord pointer layout 1
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
 
 	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -525,16 +1450,18 @@ void Demo::BuildCoPresiden()
 
 }
 
-void Demo::DrawCoPresiden(
+void Demo::DrawKakiMeja(
 	float translateX, float translateY, float translateZ,
-	float scaleX, float scaleY, float scaleZ
+	float scaleX, float scaleY, float scaleZ, GLuint shader
 )
 {
-	glUseProgram(shaderProgram);
+	UseShader(shader);
 
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, textureWapres);
-	glUniform1i(glGetUniformLocation(this->shaderProgram, "ourTexture"), 0);
+	glBindTexture(GL_TEXTURE_2D, textureKakiMeja);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
 
 	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
 
@@ -543,7 +1470,529 @@ void Demo::DrawCoPresiden(
 
 	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
 
-	GLint modelLoc = glGetUniformLocation(this->shaderProgram, "model");
+	GLint modelLoc = glGetUniformLocation(shader, "model");
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindVertexArray(0);
+}
+
+void Demo::BuildMeja()
+{
+	// load image into texture memory
+	// ------------------------------
+	// Load and create a texture 
+	glGenTextures(1, &textureMeja);
+	glBindTexture(GL_TEXTURE_2D, textureMeja);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int width, height;
+	unsigned char* image = SOIL_load_image("meja.png", &width, &height, 0, SOIL_LOAD_RGBA);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	SOIL_free_image_data(image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	// ------------------------------------------------------------------
+	float vertices[] = {
+		// format position, tex coords, normal
+		// front
+		-0.5, -0.5,  0.5, 0, 0,  0.0f,  0.0f,  1.0f, // 0
+		 0.5, -0.5,  0.5, 1, 0,  0.0f,  0.0f,  1.0f, // 1
+		 0.5,  0.5,  0.5, 1, 1,  0.0f,  0.0f,  1.0f, // 2
+		-0.5,  0.5,  0.5, 0, 1,  0.0f,  0.0f,  1.0f, // 3
+								 
+		// right				 
+		 0.5,  0.5,  0.5, 0, 0,  1.0f,  0.0f,  0.0f, // 4
+		 0.5,  0.5, -0.5, 1, 0,  1.0f,  0.0f,  0.0f, // 5
+		 0.5, -0.5, -0.5, 1, 1,  1.0f,  0.0f,  0.0f, // 6
+		 0.5, -0.5,  0.5, 0, 1,  1.0f,  0.0f,  0.0f, // 7
+								 
+		// back					 
+		-0.5, -0.5, -0.5, 0, 0,  0.0f,  0.0f, -1.0f, // 8 
+		 0.5, -0.5, -0.5, 1, 0,  0.0f,  0.0f, -1.0f, // 9
+		 0.5,  0.5, -0.5, 1, 1,  0.0f,  0.0f, -1.0f, // 10
+		-0.5,  0.5, -0.5, 0, 1,  0.0f,  0.0f, -1.0f, // 11
+
+		// left
+		-0.5, -0.5, -0.5, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		-0.5, -0.5,  0.5, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		-0.5,  0.5,  0.5, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		-0.5,  0.5, -0.5, 0, 1, -1.0f,  0.0f,  0.0f, // 15
+
+		// upper
+		 0.5,  0.5,  0.5, 0, 0,  0.0f,  1.0f,  0.0f, // 16
+		-0.5,  0.5,  0.5, 1, 0,  0.0f,  1.0f,  0.0f, // 17
+		-0.5,  0.5, -0.5, 1, 1,  0.0f,  1.0f,  0.0f, // 18
+		 0.5,  0.5, -0.5, 0, 1,  0.0f,  1.0f,  0.0f, // 19
+
+		// bottom
+		-0.5, -0.5, -0.5, 0, 0,  0.0f,  -1.0f,  0.0f, // 20
+		 0.5, -0.5, -0.5, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		 0.5, -0.5,  0.5, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		-0.5, -0.5,  0.5, 0, 1,  0.0f,  -1.0f,  0.0f, // 23
+	};
+
+	unsigned int indices[] = {
+		0,  1,  2,  0,  2,  3,   // front
+		4,  5,  6,  4,  6,  7,   // right
+		8,  9,  10, 8,  10, 11,  // back
+		12, 14, 13, 12, 15, 14,  // left
+		16, 18, 17, 16, 19, 18,  // upper
+		20, 22, 21, 20, 23, 22   // bottom
+	};
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// define position pointer layout 0
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(0);
+
+	// define texcoord pointer layout 1
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+
+	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	glBindVertexArray(0);
+
+	// remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+}
+
+void Demo::DrawMeja(
+	float translateX, float translateY, float translateZ,
+	float scaleX, float scaleY, float scaleZ, GLuint shader
+)
+{
+	UseShader(shader);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textureMeja);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+	glm::mat4 model;
+	model = glm::translate(model, glm::vec3(0 + translateX, 1 + translateY, 0 + translateZ));
+
+	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
+
+	GLint modelLoc = glGetUniformLocation(shader, "model");
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindVertexArray(0);
+}
+
+void Demo::BuildAlasKursi()
+{
+	// load image into texture memory
+	// ------------------------------
+	// Load and create a texture 
+	glGenTextures(1, &textureAlasKursi);
+	glBindTexture(GL_TEXTURE_2D, textureAlasKursi);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int width, height;
+	unsigned char* image = SOIL_load_image("meja.png", &width, &height, 0, SOIL_LOAD_RGBA);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	SOIL_free_image_data(image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	// ------------------------------------------------------------------
+	float vertices[] = {
+		// format position, tex coords, normal
+		// front
+		-1.0, -1.0, 1.0, 0, 0, 0.0f,  0.0f,  1.0f, // 0
+		1.0, -1.0, 1.0, 1, 0,  0.0f,  0.0f,  1.0f, // 1
+		1.0,  1.0, 1.0, 1, 1,  0.0f,  0.0f,  1.0f, // 2
+		-1.0,  1.0, 1.0, 0, 1, 0.0f,  0.0f,  1.0f, // 3
+
+		// right
+		1.0,  1.0,  1.0, 0, 0, 1.0f,  0.0f,  0.0f, // 4
+		1.0,  1.0, -1.0, 1, 0, 1.0f,  0.0f,  0.0f, // 5
+		1.0, -1.0, -1.0, 1, 1, 1.0f,  0.0f,  0.0f, // 6
+		1.0, -1.0,  1.0, 0, 1, 1.0f,  0.0f,  0.0f, // 7
+
+		// back
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  0.0f,  -1.0f, // 8 
+		1.0,  -1.0, -1.0, 1, 0, 0.0f,  0.0f,  -1.0f, // 9
+		1.0,   1.0, -1.0, 1, 1, 0.0f,  0.0f,  -1.0f, // 10
+		-1.0,  1.0, -1.0, 0, 1, 0.0f,  0.0f,  -1.0f, // 11
+
+		// left
+		-1.0, -1.0, -1.0, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		-1.0, -1.0,  1.0, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		-1.0,  1.0,  1.0, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		-1.0,  1.0, -1.0, 0, 1, -1.0f,  0.0f,  0.0f, // 15
+
+		// upper
+		1.0, 1.0,  1.0, 0, 0,   0.0f,  1.0f,  0.0f, // 16
+		-1.0, 1.0, 1.0, 1, 0,   0.0f,  1.0f,  0.0f, // 17
+		-1.0, 1.0, -1.0, 1, 1,  0.0f,  1.0f,  0.0f, // 18
+		1.0, 1.0, -1.0, 0, 1,   0.0f,  1.0f,  0.0f, // 19
+
+		// bottom
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  -1.0f,  0.0f, // 20
+		1.0, -1.0, -1.0, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		1.0, -1.0,  1.0, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		-1.0, -1.0,  1.0, 0, 1, 0.0f,  -1.0f,  0.0f, // 23
+	};
+
+	unsigned int indices[] = {
+		0,  1,  2,  0,  2,  3,   // front
+		4,  5,  6,  4,  6,  7,   // right
+		8,  9,  10, 8,  10, 11,  // back
+		12, 14, 13, 12, 15, 14,  // left
+		16, 18, 17, 16, 19, 18,  // upper
+		20, 22, 21, 20, 23, 22   // bottom
+	};
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// define position pointer layout 0
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(0);
+
+	// define texcoord pointer layout 1
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+
+	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	glBindVertexArray(0);
+
+	// remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+}
+
+void Demo::DrawAlasKursi(
+	float translateX, float translateY, float translateZ,
+	float scaleX, float scaleY, float scaleZ, GLuint shader
+)
+{
+	UseShader(shader);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textureAlasKursi);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+	glm::mat4 model;
+	model = glm::translate(model, glm::vec3(0 + translateX, 1 + translateY, 0 + translateZ));
+
+	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
+
+	GLint modelLoc = glGetUniformLocation(shader, "model");
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindVertexArray(0);
+}
+
+void Demo::BuildSandaranKursi()
+{
+	// load image into texture memory
+	// ------------------------------
+	// Load and create a texture 
+	glGenTextures(1, &textureSandaranKursi);
+	glBindTexture(GL_TEXTURE_2D, textureSandaranKursi);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int width, height;
+	unsigned char* image = SOIL_load_image("alaskursi.png", &width, &height, 0, SOIL_LOAD_RGBA);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	SOIL_free_image_data(image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	// ------------------------------------------------------------------
+	float vertices[] = {
+		// format position, tex coords, normal
+		// front
+		-1.0, -1.0, 1.0, 0, 0, 0.0f,  0.0f,  1.0f, // 0
+		1.0, -1.0, 1.0, 1, 0,  0.0f,  0.0f,  1.0f, // 1
+		1.0,  1.0, 1.0, 1, 1,  0.0f,  0.0f,  1.0f, // 2
+		-1.0,  1.0, 1.0, 0, 1, 0.0f,  0.0f,  1.0f, // 3
+
+		// right
+		1.0,  1.0,  1.0, 0, 0, 1.0f,  0.0f,  0.0f, // 4
+		1.0,  1.0, -1.0, 1, 0, 1.0f,  0.0f,  0.0f, // 5
+		1.0, -1.0, -1.0, 1, 1, 1.0f,  0.0f,  0.0f, // 6
+		1.0, -1.0,  1.0, 0, 1, 1.0f,  0.0f,  0.0f, // 7
+
+		// back
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  0.0f,  -1.0f, // 8 
+		1.0,  -1.0, -1.0, 1, 0, 0.0f,  0.0f,  -1.0f, // 9
+		1.0,   1.0, -1.0, 1, 1, 0.0f,  0.0f,  -1.0f, // 10
+		-1.0,  1.0, -1.0, 0, 1, 0.0f,  0.0f,  -1.0f, // 11
+
+		// left
+		-1.0, -1.0, -1.0, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		-1.0, -1.0,  1.0, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		-1.0,  1.0,  1.0, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		-1.0,  1.0, -1.0, 0, 1, -1.0f,  0.0f,  0.0f, // 15
+
+		// upper
+		1.0, 1.0,  1.0, 0, 0,   0.0f,  1.0f,  0.0f, // 16
+		-1.0, 1.0, 1.0, 1, 0,   0.0f,  1.0f,  0.0f, // 17
+		-1.0, 1.0, -1.0, 1, 1,  0.0f,  1.0f,  0.0f, // 18
+		1.0, 1.0, -1.0, 0, 1,   0.0f,  1.0f,  0.0f, // 19
+
+		// bottom
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  -1.0f,  0.0f, // 20
+		1.0, -1.0, -1.0, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		1.0, -1.0,  1.0, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		-1.0, -1.0,  1.0, 0, 1, 0.0f,  -1.0f,  0.0f, // 23
+	};
+
+	unsigned int indices[] = {
+		0,  1,  2,  0,  2,  3,   // front
+		4,  5,  6,  4,  6,  7,   // right
+		8,  9,  10, 8,  10, 11,  // back
+		12, 14, 13, 12, 15, 14,  // left
+		16, 18, 17, 16, 19, 18,  // upper
+		20, 22, 21, 20, 23, 22   // bottom
+	};
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// define position pointer layout 0
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(0);
+
+	// define texcoord pointer layout 1
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+
+	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	glBindVertexArray(0);
+
+	// remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+}
+
+void Demo::DrawSandaranKursi(
+	float translateX, float translateY, float translateZ,
+	float scaleX, float scaleY, float scaleZ, float rotate, GLuint shader
+)
+{
+	UseShader(shader);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textureSandaranKursi);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+	glm::mat4 model;
+	model = glm::rotate(model, rotate, glm::vec3(1, 0, 0));
+
+	model = glm::translate(model, glm::vec3(0 + translateX, 1 + translateY, 0 + translateZ));
+
+	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
+
+	GLint modelLoc = glGetUniformLocation(shader, "model");
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindVertexArray(0);
+}
+
+void Demo::BuildPapanTulis()
+{
+	// load image into texture memory
+	// ------------------------------
+	// Load and create a texture 
+	glGenTextures(1, &texturePapanTulis);
+	glBindTexture(GL_TEXTURE_2D, texturePapanTulis);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int width, height;
+	unsigned char* image = SOIL_load_image("tv.png", &width, &height, 0, SOIL_LOAD_RGBA);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	SOIL_free_image_data(image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	// ------------------------------------------------------------------
+	float vertices[] = {
+		// format position, tex coords, normal
+		// front
+		-1.0, -1.0, 1.0, 0, 0, 0.0f,  0.0f,  1.0f, // 0
+		1.0, -1.0, 1.0, 1, 0,  0.0f,  0.0f,  1.0f, // 1
+		1.0,  1.0, 1.0, 1, 1,  0.0f,  0.0f,  1.0f, // 2
+		-1.0,  1.0, 1.0, 0, 1, 0.0f,  0.0f,  1.0f, // 3
+
+		// right
+		1.0,  1.0,  1.0, 0, 0, 1.0f,  0.0f,  0.0f, // 4
+		1.0,  1.0, -1.0, 1, 0, 1.0f,  0.0f,  0.0f, // 5
+		1.0, -1.0, -1.0, 1, 1, 1.0f,  0.0f,  0.0f, // 6
+		1.0, -1.0,  1.0, 0, 1, 1.0f,  0.0f,  0.0f, // 7
+
+		// back
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  0.0f,  -1.0f, // 8 
+		1.0,  -1.0, -1.0, 1, 0, 0.0f,  0.0f,  -1.0f, // 9
+		1.0,   1.0, -1.0, 1, 1, 0.0f,  0.0f,  -1.0f, // 10
+		-1.0,  1.0, -1.0, 0, 1, 0.0f,  0.0f,  -1.0f, // 11
+
+		// left
+		-1.0, -1.0, -1.0, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		-1.0, -1.0,  1.0, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		-1.0,  1.0,  1.0, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		-1.0,  1.0, -1.0, 0, 1, -1.0f,  0.0f,  0.0f, // 15
+
+		// upper
+		1.0, 1.0,  1.0, 0, 0,   0.0f,  1.0f,  0.0f, // 16
+		-1.0, 1.0, 1.0, 1, 0,   0.0f,  1.0f,  0.0f, // 17
+		-1.0, 1.0, -1.0, 1, 1,  0.0f,  1.0f,  0.0f, // 18
+		1.0, 1.0, -1.0, 0, 1,   0.0f,  1.0f,  0.0f, // 19
+
+		// bottom
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  -1.0f,  0.0f, // 20
+		1.0, -1.0, -1.0, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		1.0, -1.0,  1.0, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		-1.0, -1.0,  1.0, 0, 1, 0.0f,  -1.0f,  0.0f, // 23
+	};
+
+	unsigned int indices[] = {
+		0,  1,  2,  0,  2,  3,   // front
+		4,  5,  6,  4,  6,  7,   // right
+		8,  9,  10, 8,  10, 11,  // back
+		12, 14, 13, 12, 15, 14,  // left
+		16, 18, 17, 16, 19, 18,  // upper
+		20, 22, 21, 20, 23, 22   // bottom
+	};
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// define position pointer layout 0
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(0);
+
+	// define texcoord pointer layout 1
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+
+	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	glBindVertexArray(0);
+
+	// remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+}
+
+void Demo::DrawPapanTulis(
+	float translateX, float translateY, float translateZ,
+	float scaleX, float scaleY, float scaleZ, GLuint shader
+)
+{
+	UseShader(shader);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texturePapanTulis);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+	glm::mat4 model;
+	model = glm::translate(model, glm::vec3(0 + translateX, 1 + translateY, 0 + translateZ));
+
+	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
+
+	GLint modelLoc = glGetUniformLocation(shader, "model");
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
 	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
@@ -573,10 +2022,10 @@ void Demo::BuildColoredPlane()
 	GLfloat vertices[] = {
 		// format position, tex coords
 		// bottom
-		-15.0, -0.5, -15.0,  0,  0,
-		 15.0, -0.5, -15.0, 15,  0,
-		 15.0, -0.5,  15.0, 15, 15,
-		-15.0, -0.5,  15.0,  0, 15,
+		-15.0, -0.5, -15.0,  0,  0, 0.0f,  1.0f,  0.0f,
+		 15.0, -0.5, -15.0, 15,  0,	0.0f,  1.0f,  0.0f,
+		 15.0, -0.5,  25.0, 15, 15,	0.0f,  1.0f,  0.0f,
+		-15.0, -0.5,  25.0,  0, 15,	0.0f,  1.0f,  0.0f,
 	};
 
 	GLuint indices[] = { 0,  2,  1,  0,  3,  2 };
@@ -594,33 +2043,328 @@ void Demo::BuildColoredPlane()
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 	// Position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), 0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
 	glEnableVertexAttribArray(0);
 	// TexCoord attribute
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(1);
+	// Normal attribute
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
 
 	glBindVertexArray(0); // Unbind VAO
 }
 
-void Demo::DrawColoredPlane()
+void Demo::DrawColoredPlane(GLuint shader)
 {
-	glUseProgram(shaderProgram);
+	UseShader(shader);
 
-	glActiveTexture(GL_TEXTURE1);
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texturePlane);
-	glUniform1i(glGetUniformLocation(this->shaderProgram, "ourTexture"), 1);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
 
 	glBindVertexArray(VAO2); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
 
 	glm::mat4 model;
-	GLint modelLoc = glGetUniformLocation(this->shaderProgram, "model");
+	GLint modelLoc = glGetUniformLocation(shader, "model");
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindVertexArray(0);
+}
+
+void Demo::BuildProyektor()
+{
+	// load image into texture memory
+	// ------------------------------
+	// Load and create a texture 
+	glGenTextures(1, &textureProyektor);
+	glBindTexture(GL_TEXTURE_2D, textureProyektor);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int width, height;
+	unsigned char* image = SOIL_load_image("meja.png", &width, &height, 0, SOIL_LOAD_RGBA);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	SOIL_free_image_data(image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	// ------------------------------------------------------------------
+	float vertices[] = {
+		// format position, tex coords, normal
+		// front
+		-1.0, -1.0, 1.0, 0, 0, 0.0f,  0.0f,  1.0f, // 0
+		1.0, -1.0, 1.0, 1, 0,  0.0f,  0.0f,  1.0f, // 1
+		1.0,  1.0, 1.0, 1, 1,  0.0f,  0.0f,  1.0f, // 2
+		-1.0,  1.0, 1.0, 0, 1, 0.0f,  0.0f,  1.0f, // 3
+
+		// right
+		1.0,  1.0,  1.0, 0, 0, 1.0f,  0.0f,  0.0f, // 4
+		1.0,  1.0, -1.0, 1, 0, 1.0f,  0.0f,  0.0f, // 5
+		1.0, -1.0, -1.0, 1, 1, 1.0f,  0.0f,  0.0f, // 6
+		1.0, -1.0,  1.0, 0, 1, 1.0f,  0.0f,  0.0f, // 7
+
+		// back
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  0.0f,  -1.0f, // 8 
+		1.0,  -1.0, -1.0, 1, 0, 0.0f,  0.0f,  -1.0f, // 9
+		1.0,   1.0, -1.0, 1, 1, 0.0f,  0.0f,  -1.0f, // 10
+		-1.0,  1.0, -1.0, 0, 1, 0.0f,  0.0f,  -1.0f, // 11
+
+		// left
+		-1.0, -1.0, -1.0, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		-1.0, -1.0,  1.0, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		-1.0,  1.0,  1.0, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		-1.0,  1.0, -1.0, 0, 1, -1.0f,  0.0f,  0.0f, // 15
+
+		// upper
+		1.0, 1.0,  1.0, 0, 0,   0.0f,  1.0f,  0.0f, // 16
+		-1.0, 1.0, 1.0, 1, 0,   0.0f,  1.0f,  0.0f, // 17
+		-1.0, 1.0, -1.0, 1, 1,  0.0f,  1.0f,  0.0f, // 18
+		1.0, 1.0, -1.0, 0, 1,   0.0f,  1.0f,  0.0f, // 19
+
+		// bottom
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  -1.0f,  0.0f, // 20
+		1.0, -1.0, -1.0, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		1.0, -1.0,  1.0, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		-1.0, -1.0,  1.0, 0, 1, 0.0f,  -1.0f,  0.0f, // 23
+	};
+
+	unsigned int indices[] = {
+		0,  1,  2,  0,  2,  3,   // front
+		4,  5,  6,  4,  6,  7,   // right
+		8,  9,  10, 8,  10, 11,  // back
+		12, 14, 13, 12, 15, 14,  // left
+		16, 18, 17, 16, 19, 18,  // upper
+		20, 22, 21, 20, 23, 22   // bottom
+	};
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// define position pointer layout 0
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(0);
+
+	// define texcoord pointer layout 1
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+
+	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	glBindVertexArray(0);
+
+	// remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+}
+
+void Demo::DrawProyektor(
+	float translateX, float translateY, float translateZ,
+	float scaleX, float scaleY, float scaleZ, GLuint shader
+)
+{
+	UseShader(shader);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textureProyektor);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+	glm::mat4 model;
+	model = glm::translate(model, glm::vec3(0 + translateX, 1 + translateY, 0 + translateZ));
+
+	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
+
+	GLint modelLoc = glGetUniformLocation(shader, "model");
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindVertexArray(0);
+}
+
+void Demo::BuildTiang()
+{
+	// load image into texture memory
+	// ------------------------------
+	// Load and create a texture 
+	glGenTextures(1, &textureTiang);
+	glBindTexture(GL_TEXTURE_2D, textureTiang);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int width, height;
+	unsigned char* image = SOIL_load_image("tiang.png", &width, &height, 0, SOIL_LOAD_RGBA);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	SOIL_free_image_data(image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	// ------------------------------------------------------------------
+	float vertices[] = {
+		// format position, tex coords, normal
+		// front
+		-1.0, -1.0, 1.0, 0, 0, 0.0f,  0.0f,  1.0f, // 0
+		1.0, -1.0, 1.0, 1, 0,  0.0f,  0.0f,  1.0f, // 1
+		1.0,  1.0, 1.0, 1, 1,  0.0f,  0.0f,  1.0f, // 2
+		-1.0,  1.0, 1.0, 0, 1, 0.0f,  0.0f,  1.0f, // 3
+
+		// right
+		1.0,  1.0,  1.0, 0, 0, 1.0f,  0.0f,  0.0f, // 4
+		1.0,  1.0, -1.0, 1, 0, 1.0f,  0.0f,  0.0f, // 5
+		1.0, -1.0, -1.0, 1, 1, 1.0f,  0.0f,  0.0f, // 6
+		1.0, -1.0,  1.0, 0, 1, 1.0f,  0.0f,  0.0f, // 7
+
+		// back
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  0.0f,  -1.0f, // 8 
+		1.0,  -1.0, -1.0, 1, 0, 0.0f,  0.0f,  -1.0f, // 9
+		1.0,   1.0, -1.0, 1, 1, 0.0f,  0.0f,  -1.0f, // 10
+		-1.0,  1.0, -1.0, 0, 1, 0.0f,  0.0f,  -1.0f, // 11
+
+		// left
+		-1.0, -1.0, -1.0, 0, 0, -1.0f,  0.0f,  0.0f, // 12
+		-1.0, -1.0,  1.0, 1, 0, -1.0f,  0.0f,  0.0f, // 13
+		-1.0,  1.0,  1.0, 1, 1, -1.0f,  0.0f,  0.0f, // 14
+		-1.0,  1.0, -1.0, 0, 1, -1.0f,  0.0f,  0.0f, // 15
+
+		// upper
+		1.0, 1.0,  1.0, 0, 0,   0.0f,  1.0f,  0.0f, // 16
+		-1.0, 1.0, 1.0, 1, 0,   0.0f,  1.0f,  0.0f, // 17
+		-1.0, 1.0, -1.0, 1, 1,  0.0f,  1.0f,  0.0f, // 18
+		1.0, 1.0, -1.0, 0, 1,   0.0f,  1.0f,  0.0f, // 19
+
+		// bottom
+		-1.0, -1.0, -1.0, 0, 0, 0.0f,  -1.0f,  0.0f, // 20
+		1.0, -1.0, -1.0, 1, 0,  0.0f,  -1.0f,  0.0f, // 21
+		1.0, -1.0,  1.0, 1, 1,  0.0f,  -1.0f,  0.0f, // 22
+		-1.0, -1.0,  1.0, 0, 1, 0.0f,  -1.0f,  0.0f, // 23
+	};
+
+	unsigned int indices[] = {
+		0,  1,  2,  0,  2,  3,   // front
+		4,  5,  6,  4,  6,  7,   // right
+		8,  9,  10, 8,  10, 11,  // back
+		12, 14, 13, 12, 15, 14,  // left
+		16, 18, 17, 16, 19, 18,  // upper
+		20, 22, 21, 20, 23, 22   // bottom
+	};
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// define position pointer layout 0
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(0);
+
+	// define texcoord pointer layout 1
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	// define normal pointer layout 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+
+	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	glBindVertexArray(0);
+
+	// remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+}
+
+void Demo::DrawTiang(
+	float translateX, float translateY, float translateZ,
+	float scaleX, float scaleY, float scaleZ, GLuint shader
+)
+{
+	UseShader(shader);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textureTiang);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+	glm::mat4 model;
+	model = glm::translate(model, glm::vec3(0 + translateX, 1 + translateY, 0 + translateZ));
+
+	model = glm::scale(model, glm::vec3(scaleX, scaleY, scaleZ));
+
+	GLint modelLoc = glGetUniformLocation(shader, "model");
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindVertexArray(0);
+}
+
+void Demo::BuildDepthMap() {
+	// configure depth map FBO
+	// -----------------------
+	glGenFramebuffers(1, &depthMapFBO);
+	// create depth texture
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, this->SHADOW_WIDTH, this->SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+	// attach depth texture as FBO's depth buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Demo::BuildShaders()
+{
+	// build and compile our shader program
+	// ------------------------------------
+	shadowmapShader = BuildShader("shadowMapping.vert", "shadowMapping.frag", nullptr);
+	depthmapShader = BuildShader("depthMapping.vert", "depthMapping.frag", nullptr);
 }
 
 void Demo::InitCamera()
@@ -674,5 +2418,5 @@ void Demo::RotateCamera(float speed)
 
 int main(int argc, char** argv) {
 	RenderEngine &app = Demo();
-	app.Start("Transformation: Transform Cube", 800, 600, true, false);
+	app.Start("Transformation: Transform Cube", 1920, 1080, true, true);
 }

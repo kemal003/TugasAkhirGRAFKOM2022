@@ -13,8 +13,15 @@ public:
 	Demo();
 	~Demo();
 private:
+
+	// Shader Things
+	GLuint depthmapShader, shadowmapShader, depthMapFBO, depthMap;
+	const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+	void BuildDepthMap();
+	void BuildShaders();
+	
 	GLuint shaderProgram,
-		VBO, VAO, EBO, textureWall, texturePresiden, textureWapres,
+		VBO, VAO, EBO, textureWall, textureAtap, texturePresiden, textureWapres, textureKakiKursi, textureKakiMeja, textureMeja, textureOrnamen, textureAlasKursi, textureSandaranKursi, texturePapanTulis, textureProyektor, textureTiang,
 		VBO2, VAO2, EBO2, texturePlane;
 
 	float viewCamX, viewCamY, viewCamZ, upCamX, upCamY, upCamZ, posCamX, posCamY, posCamZ, CAMERA_SPEED, fovy;
@@ -27,23 +34,83 @@ private:
 	// void BuildColoredCube();
 	void BuildColoredPlane();
 	// void DrawColoredCube();
-	void DrawColoredPlane();
+	void DrawColoredPlane(GLuint shader);
 	void BuildColoredWall();
 	void DrawColoredWall(
 		float translateX, float translateY, float translateZ,
-		float scaleX, float scaleY, float scaleZ
+		float scaleX, float scaleY, float scaleZ, GLuint shader
+	);
+
+	void BuildAtap();
+	void DrawAtap(
+		float translateX, float translateY, float translateZ,
+		float scaleX, float scaleY, float scaleZ, GLuint shader
+	);
+
+	void BuildOrnamen();
+	void DrawOrnamen(
+		float translateX, float translateY, float translateZ,
+		float scaleX, float scaleY, float scaleZ, GLuint shader
 	);
 
 	void BuildPresiden();
 	void DrawPresiden(
 		float translateX, float translateY, float translateZ,
-		float scaleX, float scaleY, float scaleZ
+		float scaleX, float scaleY, float scaleZ, GLuint shader
 	);
 
 	void BuildCoPresiden();
 	void DrawCoPresiden(
 		float translateX, float translateY, float translateZ,
-		float scaleX, float scaleY, float scaleZ
+		float scaleX, float scaleY, float scaleZ, GLuint shader
+	);
+
+	void BuildKakiKursi();
+	void DrawKakiKursi(
+		float translateX, float translateY, float translateZ,
+		float scaleX, float scaleY, float scaleZ, GLuint shader
+	);
+
+	void BuildKakiMeja();
+	void DrawKakiMeja(
+		float translateX, float translateY, float translateZ,
+		float scaleX, float scaleY, float scaleZ, GLuint shader
+	);
+
+	void BuildMeja();
+	void DrawMeja(
+		float translateX, float translateY, float translateZ,
+		float scaleX, float scaleY, float scaleZ, GLuint shader
+	);
+
+	void BuildAlasKursi();
+	void DrawAlasKursi(
+		float translateX, float translateY, float translateZ,
+		float scaleX, float scaleY, float scaleZ, GLuint shader
+	);
+
+	void BuildSandaranKursi();
+	void DrawSandaranKursi(
+		float translateX, float translateY, float translateZ,
+		float scaleX, float scaleY, float scaleZ, float rotate, GLuint shader
+	);
+
+	void BuildPapanTulis();
+	void DrawPapanTulis(
+		float translateX, float translateY, float translateZ,
+		float scaleX, float scaleY, float scaleZ, GLuint shader
+	);
+
+	void BuildProyektor();
+	void DrawProyektor(
+		float translateX, float translateY, float translateZ,
+		float scaleX, float scaleY, float scaleZ, GLuint shader
+	);
+
+	void BuildTiang();
+	void DrawTiang(
+		float translateX, float translateY, float translateZ,
+		float scaleX, float scaleY, float scaleZ, GLuint shader
 	);
 
 	void MoveCamera(float speed);

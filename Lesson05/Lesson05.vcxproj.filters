@@ -40,6 +40,18 @@
     <None Include="vertexShader.vert">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="depthMapping.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="depthMapping.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shadowMapping.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shadowMapping.vert">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="crate.png">
@@ -49,6 +61,39 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="floor.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="default.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="meja.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="ornamen.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="presiden.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="wakil.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="wall.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="kakikursi.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="alaskursi.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="tiang.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="tv.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="atap.png">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

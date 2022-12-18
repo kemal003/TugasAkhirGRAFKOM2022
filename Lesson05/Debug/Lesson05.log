@@ -1,5 +1,29 @@
 ﻿C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(534,5): warning MSB8028: The intermediate directory (Debug\) contains files shared from another project (Lesson02.vcxproj, Lesson03.vcxproj, Lesson04.vcxproj).  This can lead to incorrect clean and rebuild behavior.
   Demo.cpp
-E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(170,2): warning C4305: 'argument': truncation from 'double' to 'float'
-E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(178,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(173,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(182,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(299,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(309,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(323,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(345,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(354,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(364,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(374,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(384,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(394,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(406,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(416,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(426,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(436,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(446,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(456,2): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(477,4): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(471,5): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(500,4): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(525,4): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(519,5): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(534,4): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(528,5): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(553,4): warning C4305: 'argument': truncation from 'double' to 'float'
+E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Lesson05\Demo.cpp(563,4): warning C4305: 'argument': truncation from 'double' to 'float'
   Lesson05.vcxproj -> E:\KULIAH\Semester 7\Grafika Komputer\Grafika Komputer dan Visualisasi\vs\Debug\Lesson05.exe

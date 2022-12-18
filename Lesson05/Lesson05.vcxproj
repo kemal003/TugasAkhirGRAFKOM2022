@@ -133,13 +133,28 @@
     <ClInclude Include="RenderEngine.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="depthMapping.frag" />
+    <None Include="depthMapping.vert" />
     <None Include="fragmentShader.frag" />
+    <None Include="shadowMapping.frag" />
+    <None Include="shadowMapping.vert" />
     <None Include="vertexShader.vert" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="alaskursi.png" />
+    <Image Include="atap.png" />
     <Image Include="crate.png" />
+    <Image Include="default.png" />
     <Image Include="floor.png" />
+    <Image Include="kakikursi.png" />
     <Image Include="marble.png" />
+    <Image Include="meja.png" />
+    <Image Include="ornamen.png" />
+    <Image Include="presiden.png" />
+    <Image Include="tiang.png" />
+    <Image Include="tv.png" />
+    <Image Include="wakil.png" />
+    <Image Include="wall.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
